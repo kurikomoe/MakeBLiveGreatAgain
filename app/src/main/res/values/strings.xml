@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">B站小工具</string>
+    <string name="xposed_desc">B站小工具</string>
+    <string name="about_module">This module is made by YukiHookAPI. \nLearn more https://github.com/fankes/YukiHookAPI</string>
+</resources>

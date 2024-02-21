@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="module_scope">
+        <item>com.bilibili.app.in</item>
+        <item>tv.danmaku.bilibilihd</item>
+        <item>tv.danmaku.bili</item>
+    </string-array>
+</resources>
