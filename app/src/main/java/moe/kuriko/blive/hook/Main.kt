@@ -7,12 +7,16 @@ import android.widget.EditText
 import com.highcapable.yukihookapi.annotation.xposed.InjectYukiHookWithXposed
 import com.highcapable.yukihookapi.hook.factory.configs
 import com.highcapable.yukihookapi.hook.factory.encase
+import com.highcapable.yukihookapi.hook.factory.method
 import com.highcapable.yukihookapi.hook.log.loggerD
 import com.highcapable.yukihookapi.hook.log.loggerE
 import com.highcapable.yukihookapi.hook.param.HookParam
+import com.highcapable.yukihookapi.hook.type.java.StringClass
+import com.highcapable.yukihookapi.hook.type.java.UnitType
 import com.highcapable.yukihookapi.hook.xposed.proxy.IYukiHookXposedInit
 import de.robv.android.xposed.XposedHelpers
 import org.json.JSONObject
+import java.lang.reflect.Modifier
 
 
 @InjectYukiHookWithXposed
@@ -266,6 +270,31 @@ class Main : IYukiHookXposedInit {
             }
         }
 
+        val hookComboDMFuzz = { className: String ->
+            className.hook {
+                injectMember(tag = "hookComboDMFuzz") {
+                    method {
+                        modifiers {
+                            isFinal && isPrivate
+                        }
+
+                        name {
+                            it.length == 2
+                        }
+
+                        paramCount(0..1)
+
+                        returnType = UnitType
+
+                        order()
+                    }
+                    replaceUnit {
+                        loggerD(TAG, "comboDM Replaced")
+                    }
+                }
+            }
+        }
+
         val modifyExtra = fun(extra_string: String): Pair<String, String> {
             val extra_dict = JSONObject(extra_string)
 
@@ -284,13 +313,14 @@ class Main : IYukiHookXposedInit {
             val prefixContent = when (cur_dm_mode) {
                 // normal_dm -> "[普通弹幕]"
                 normal_dm -> ""
-                bottom_dm -> "[底部弹幕]"
-                else -> "[未知($cur_dm_mode)]"
+                bottom_dm -> "↓ "
+//                else -> "[未知($cur_dm_mode)]"
+                else -> ""
             }
-            val new_content = "$prefixContent $content"
+            val new_content = "$prefixContent$content"
             extra_dict.put("content", new_content)
 
-            // Disable emotion
+            // Disable emotion pic
             extra_dict.put("dm_type", 0)
             extra_dict.put("emoticon_unique", "")
 
@@ -352,8 +382,6 @@ class Main : IYukiHookXposedInit {
                         name = "invoke"
                     }
                     beforeHook {
-                        loggerE(TAG, "1: ${this.args[1]}")
-                        loggerE(TAG, "2: ${this.args[2]}")
                         if (this.args.size == 4) {
                             this.args[1] = modifyDanmakuData(this.args[1].toString())
                             this.args[2] = modifyDanmakuData(this.args[2].toString())
@@ -408,15 +436,17 @@ class Main : IYukiHookXposedInit {
 //            hookLiveDanmakuObserver("com.bilibili.bililive.infra.socketbuilder.inline.danmaku.LiveInlineDanmakuParser\$observeOriginDanmaku\$1")
         }
         loadApp(name = "tv.danmaku.bili") {
-            hookComboDM(
-                "com.bilibili.bililive.room.biz.combodm.LiveRoomComboCardBizServiceImpl",
-                "ed"
-            )
-            hookComboDM(
-                "com.bilibili.bililive.room.biz.combodm.LiveRoomComboCardBizServiceImpl",
-                "cd"
-            )
-            hookLiveDanmaku("com.bilibili.bililive.infra.socket.core.codec.msg.c")
+            hookComboDMFuzz("com.bilibili.bililive.room.biz.combodm.LiveRoomComboCardBizServiceImpl")
+//            hookComboDM(
+//                "com.bilibili.bililive.room.biz.combodm.LiveRoomComboCardBizServiceImpl",
+//                "ed"
+//            )  // 1.78
+//            hookComboDM(
+//                "com.bilibili.bililive.room.biz.combodm.LiveRoomComboCardBizServiceImpl",
+//                "le"
+//            )
+
+//            hookLiveDanmaku("com.bilibili.bililive.infra.socket.core.codec.msg.c")
 //            hookSnippet(
 //                "com.bilibili.bililive.blps.liveplayer.apis.beans.url.v2.d",
 //                "a"
