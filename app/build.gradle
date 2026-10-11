@@ -52,6 +52,9 @@ dependencies {
     implementation 'com.highcapable.yukihookapi:api:1.1.11'
     ksp 'com.highcapable.yukihookapi:ksp-xposed:1.1.11'
     testImplementation 'junit:junit:4.13.2'
+    // 单元测试跑在 JVM 上，Android 框架里的 org.json 是空壳（调用即抛 Stub!），
+    // 这里换成真正的实现，让片段解析这类纯逻辑可以被测到。
+    testImplementation 'org.json:json:20231013'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 }

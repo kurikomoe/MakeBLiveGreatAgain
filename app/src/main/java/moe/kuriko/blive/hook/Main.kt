@@ -11,10 +11,14 @@ import com.highcapable.yukihookapi.hook.factory.method
 import com.highcapable.yukihookapi.hook.log.loggerD
 import com.highcapable.yukihookapi.hook.log.loggerE
 import com.highcapable.yukihookapi.hook.param.HookParam
+import com.highcapable.yukihookapi.hook.param.PackageParam
 import com.highcapable.yukihookapi.hook.type.java.StringClass
 import com.highcapable.yukihookapi.hook.type.java.UnitType
 import com.highcapable.yukihookapi.hook.xposed.proxy.IYukiHookXposedInit
 import de.robv.android.xposed.XposedHelpers
+import moe.kuriko.blive.hook.sponsorblock.HookTargets
+import moe.kuriko.blive.hook.sponsorblock.SponsorBlockHooks
+import moe.kuriko.blive.sponsorblock.SponsorBlockPrefs
 import org.json.JSONObject
 import java.lang.reflect.Modifier
 
@@ -436,6 +440,7 @@ class Main : IYukiHookXposedInit {
 //            hookLiveDanmakuObserver("com.bilibili.bililive.infra.socketbuilder.inline.danmaku.LiveInlineDanmakuParser\$observeOriginDanmaku\$1")
         }
         loadApp(name = "tv.danmaku.bili") {
+            installSponsorBlock()
             hookComboDMFuzz("com.bilibili.bililive.room.biz.combodm.LiveRoomComboCardBizServiceImpl")
 //            hookComboDM(
 //                "com.bilibili.bililive.room.biz.combodm.LiveRoomComboCardBizServiceImpl",
@@ -459,6 +464,7 @@ class Main : IYukiHookXposedInit {
 //            );
         }
         loadApp(name = "com.bilibili.app.in") {
+            installSponsorBlock()
 //            hookSnippet(
 //                "com.bilibili.bililive.blps.liveplayer.apis.beans.url.v2.a",
 //                "b"
@@ -472,5 +478,48 @@ class Main : IYukiHookXposedInit {
             hookLiveDanmakuObserver("com.bilibili.bililive.room.biz.interaction.LiveRoomInteractionBizServiceImpl\$observeSocketMessage\$\$inlined\$observeOriginMessageOnUiThread\$1")
         }
 
+    }
+
+    /**
+     * 安装 BilibiliSponsorBlock（小电视空降助手）跳过功能。
+     *
+     * 只在宿主主进程安装：`:web` / `:download` / `:ijkservice` 等子进程既没有播放器 UI，
+     * 也没有意义去轮询进度。
+     *
+     * 配置读取优先走 YukiHookAPI 自带的跨进程 prefs 桥，失败时由
+     * [SponsorBlockPrefs.loadInHost] 继续尝试 XSharedPreferences / createPackageContext。
+     */
+    private fun PackageParam.installSponsorBlock() {
+        runCatching {
+            val process = processName
+            if (HookTargets.SUB_PROCESS_SUFFIXES.any { process.endsWith(it) }) {
+                loggerD(TAG, "子进程 $process 不安装 SponsorBlock hook")
+                return
+            }
+            SponsorBlockHooks.install(
+                classLoader = appClassLoader,
+                hostContext = appContext,
+                prefsProvider = {
+                    runCatching {
+                        val bridge = prefs(SponsorBlockPrefs.PREFS_NAME)
+                        if (bridge.isPreferencesAvailable) {
+                            // 配置会被周期性重读，必须清掉框架层的缓存，否则拿到的永远是启动时的值
+                            bridge.clearCache()
+                            bridge.all().entries.associate { it.key to (it.value as Any?) }
+                        } else {
+                            null
+                        }
+                    }.onFailure { loggerE(TAG, "读取模块 prefs 失败: ${it.message}") }.getOrNull()
+                },
+            )
+            // 宿主 Application 创建后再读一次配置：onHook() 阶段还拿不到 Context，
+            // 这里才是「启动即可用」的时机（见 FINDINGS §19）。
+            onAppLifecycle(true) {
+                onCreate {
+                    // onCreate 是 Application 的扩展，this 就是宿主 Application
+                    SponsorBlockHooks.onHostApplicationCreated(this)
+                }
+            }
+        }.onFailure { loggerE(TAG, "安装 SponsorBlock hook 失败: $it") }
     }
 }

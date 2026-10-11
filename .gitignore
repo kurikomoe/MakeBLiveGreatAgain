@@ -1,3 +1,17 @@
+.direnv/
+.refs/
+.temp/
+.outputs/
+
+.envrc
+AGENTS.md
+PROJECTS.md
+MEMORY.md
+FINDINGS.md
+
+.pre-commit-config.yaml
+
+
 # Created by https://www.toptal.com/developers/gitignore/api/android
 # Edit at https://www.toptal.com/developers/gitignore?templates=android
 

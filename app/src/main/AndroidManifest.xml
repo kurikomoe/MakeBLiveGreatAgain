@@ -3,6 +3,22 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="moe.kuriko.blive">
 
+    <!--
+      模块自己的进程要联网才能做设置页的「测试连接」。
+      （Hook 侧的联网跑在宿主进程里，用的是宿主自己的 INTERNET 权限，与此无关。）
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+      Android 11+ 包可见性：显式声明要交互的宿主包，保证
+      PackageManager.getPackagesForUid() / Provider 解析在这些包上不被过滤。
+    -->
+    <queries>
+        <package android:name="tv.danmaku.bili" />
+        <package android:name="com.bilibili.app.in" />
+        <package android:name="tv.danmaku.bilibilihd" />
+    </queries>
+
     <application
         android:name=".application.DefaultApplication"
         android:allowBackup="true"
@@ -14,6 +30,38 @@
         android:multiArch="true"
         android:use32bitAbi="true"
         tools:targetApi="31">
+
+        <activity
+            android:name=".settings.SponsorBlockSettingsActivity"
+            android:exported="true"
+            android:label="@string/sponsorblock_settings_title">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          接收宿主的「请把设置发过来」显式广播（宿主启动时发一次）。
+          manifest 接收器才能把没启动的模块进程拉起来，所以这里必须是 exported 的；
+          它只做一件事：把当前设置广播回去。
+        -->
+        <receiver
+            android:name=".settings.SettingsRequestReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="moe.kuriko.blive.action.REQUEST_SETTINGS" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+          跨进程设置桥：宿主进程靠它读模块设置（Android 11+ 上会被包可见性挡住，现为兜底）。
+          exported=true 且不声明权限，准入在 SponsorBlockSettingsProvider.isAllowedCaller 里做。
+        -->
+        <provider
+            android:name=".settings.SponsorBlockSettingsProvider"
+            android:authorities="${applicationId}.settings"
+            android:exported="true" />
 
         <meta-data
             android:name="xposedmodule"
